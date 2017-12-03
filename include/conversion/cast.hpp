@@ -22,6 +22,8 @@
 #include <boost/exception/detail/exception_ptr.hpp>
 #include <boost/cstdint.hpp>
 #include <boost/algorithm/hex.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
 
 namespace conv
 {
@@ -87,10 +89,20 @@ namespace conv
 			}
 		};
 
+        template<typename Target, typename Source>
+		typename boost::enable_if
+		<
+			boost::is_same<Target, Source>,
+			Target
+		>::type CastImpl(const Source& src)
+		{
+            return src;
+		}
+
 		template<typename Target, typename Source>
 		typename boost::disable_if
 		<
-			boost::mpl::or_<boost::is_enum<Target>, boost::is_enum<Source> >,
+			boost::mpl::or_<boost::is_enum<Target>, boost::is_enum<Source>, boost::is_same<Target, Source> >,
 			Target
 		>::type CastImpl(const Source& src)
 		{
@@ -309,7 +321,7 @@ namespace conv
             }
         };
 
-        //! Specialized help struct - conversion posix time to 
+        //! Specialized help struct - conversion posix time to uint 64
         template<>
         struct Caster<boost::uint64_t, boost::posix_time::ptime>
         {
@@ -317,12 +329,23 @@ namespace conv
             {
                 using namespace boost::posix_time;
                 static const ptime epoch(boost::gregorian::date(1970, 1, 1));
-                time_duration diff(src - epoch);
-                return diff.total_milliseconds();
+                return time_duration(src - epoch).total_milliseconds();
             }
         };
 
-        //! Specialized help struct - conversion int64 to posix time
+        //! Specialized help struct - conversion posix time to uint 32
+        template<>
+        struct Caster<boost::uint32_t, boost::posix_time::ptime>
+        {
+            boost::uint64_t operator () (const boost::posix_time::ptime& src)
+            {
+                using namespace boost::posix_time;
+                static const ptime epoch(boost::gregorian::date(1970, 1, 1));
+                return time_duration(src - epoch).total_seconds();
+            }
+        };
+
+        //! Specialized help struct - conversion uint64 to posix time
         template<>
         struct Caster<boost::posix_time::ptime, boost::uint64_t>
         {
@@ -330,8 +353,19 @@ namespace conv
             {
                 using namespace boost::posix_time;
                 static const ptime epoch(boost::gregorian::date(1970, 1, 1));
-                epoch + boost::posix_time::milliseconds(src);
                 return epoch + boost::posix_time::milliseconds(src);
+            }
+        };
+
+        //! Specialized help struct - conversion uint32 to posix time
+        template<>
+        struct Caster<boost::posix_time::ptime, boost::uint32_t>
+        {
+            boost::posix_time::ptime operator () (const boost::uint32_t& src)
+            {
+                using namespace boost::posix_time;
+                static const ptime epoch(boost::gregorian::date(1970, 1, 1));
+                return epoch + boost::posix_time::seconds(src);
             }
         };
 
@@ -478,6 +512,88 @@ namespace conv
             }
         };
 
+        //! Specialized help struct - conversion string to vector of integers
+        template<>
+        struct Caster<std::vector<boost::uint64_t>, std::string>
+        {
+            std::vector<boost::uint64_t> operator () (const std::string& src)
+            {
+                std::vector<boost::uint64_t> result;
+                if (src.empty())
+                    return result;
+
+                std::vector<std::string> temp;
+                boost::algorithm::split(temp, src, boost::algorithm::is_any_of(","));
+
+                result.resize(temp.size());
+                std::transform(temp.begin(), temp.end(), result.begin(), [](const std::string& i){
+                    return CastImpl<boost::uint64_t, std::string>(i);
+                });
+                return result;
+            }
+        };
+
+        //! Specialized help struct - conversion vector of integers to string
+        template<>
+        struct Caster<std::string, std::vector<boost::uint64_t>>
+        {
+            std::string operator () (const std::vector<boost::uint64_t>& src)
+            {
+                std::string result;
+                if (src.empty())
+                    return result;
+
+                for (unsigned i = 0; i < src.size(); ++i)
+                {
+                    if (i)
+                        result += ",";
+                    result += CastImpl<std::string, boost::uint64_t>(src[i]);
+                }
+                return result;
+            }
+        };
+
+        //! Specialized help struct - conversion string to vector of strings
+        template<>
+        struct Caster<std::vector<std::string>, std::string>
+        {
+            std::vector<std::string> operator () (const std::string& src)
+            {
+                std::vector<std::string> result;
+                boost::algorithm::split(result, src, boost::algorithm::is_any_of(","));
+                return result;
+            }
+        };
+
+        //! Specialized help struct - conversion vector of strings to string
+        template<>
+        struct Caster<std::string, std::vector<std::string>>
+        {
+            std::string operator () (const std::vector<std::string>& src)
+            {
+                std::string result;
+                if (src.empty())
+                    return result;
+
+                for (unsigned i = 0; i < src.size(); ++i)
+                {
+                    if (i)
+                        result += ",";
+                    result += src[i];
+                }
+                return result;
+            }
+        };
+
+        //! Specialized help struct - conversion string stream to string
+        template<>
+        struct Caster<std::string, std::stringstream>
+        {
+            std::string operator () (const std::stringstream& src)
+            {
+                return src.str();
+            }
+        };
 	} // namespace details
 
     //! Cast function

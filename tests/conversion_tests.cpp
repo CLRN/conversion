@@ -1,4 +1,4 @@
-#include "conversion/cast.h"
+#include "conversion/cast.hpp"
 
 // Google test library headers
 #include <gtest/gtest.h>

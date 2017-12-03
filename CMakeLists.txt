@@ -1,35 +1,24 @@
-file(GLOB SOURCES "*.cpp" "*.h")
+cmake_minimum_required(VERSION 3.0)
+set(CMAKE_CXX_STANDARD 14)
 
-IF(BIICODE)
-    INIT_BIICODE_BLOCK()
-    
-    #Include biicode Boost setup
-    include(biicode/boost/setup)
-    
-    # Including tools.cmake from biicode/cmake user block
-    include(biicode/cmake/tools)    
-    
-    list(APPEND BII_LIB_SRC ${SOURCES})
+file(GLOB_RECURSE SOURCES "include/*.hpp")
 
-    ADD_BIICODE_TARGETS()
-    
-    # Calling specific macro to activate c++11 flags
-    ACTIVATE_CPP11(INTERFACE ${BII_BLOCK_TARGET})    
-    
-    bii_setup_boost(COMPONENTS locale date_time REQUIRED)
-    find_package(Boost COMPONENTS locale date_time REQUIRED)
-    
-    target_include_directories(${BII_BLOCK_TARGET} INTERFACE ${Boost_INCLUDE_DIRS})
-    target_link_libraries(${BII_BLOCK_TARGET} INTERFACE ${Boost_LIBRARIES})
-    
-    foreach(target ${BII_BLOCK_TARGETS})
-        set_target_properties(${target} PROPERTIES FOLDER "clrn/common")
-    endforeach()
-    
-else()
-    set(PROJECT_NAME lib_conversion)
-    add_library(${PROJECT_NAME} STATIC ${SOURCES})
-    set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "clrn/common")
+set(BOOST_COMPONENTS locale date_time)
+find_package(Boost COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
+find_package(Threads REQUIRED)
+
+set(PROJECT_NAME lib_conversion)
+
+add_library(${PROJECT_NAME} STATIC ${SOURCES})
+target_link_libraries(${PROJECT_NAME}
+    ${Boost_LIBRARIES}
+    ${CMAKE_THREAD_LIBS_INIT}
+)
+set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "common" LINKER_LANGUAGE CXX)
+
+target_include_directories(${PROJECT_NAME} PUBLIC
+                           $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+
+if (WITH_TESTS)
     add_subdirectory(tests)
 endif()
-
