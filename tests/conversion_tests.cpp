@@ -3,6 +3,8 @@
 // Google test library headers
 #include <gtest/gtest.h>
 
+using ::testing::Values;
+
 enum Foo
 {
     First = 0,
@@ -19,6 +21,38 @@ std::istream& operator >> (std::istream& s, Foo&)
     return s;
 }
 
+
+struct Base64Test : public ::testing::TestWithParam<std::pair<std::string, std::string>>
+{
+};
+
+TEST_P(Base64Test, Conversion)
+{
+    const std::string valid(GetParam().first);
+
+    const auto expectedLen = stlencoders::base64<char>::max_encode_size(valid.size());
+
+    const std::string base64 = conv::cast<conv::Base64>(valid);
+    EXPECT_EQ(base64, GetParam().second);
+    EXPECT_EQ(expectedLen, base64.size());
+
+    std::vector<char> binary = conv::cast<std::vector<char>, conv::Base64>(base64);
+    std::string result(binary.begin(), binary.end());
+    EXPECT_EQ(result, valid);
+}
+
+INSTANTIATE_TEST_CASE_P(ConversionTest,
+                        Base64Test,
+                        Values(std::make_pair("", ""),
+                               std::make_pair("M", "TQ=="),
+                               std::make_pair("Ma", "TWE="),
+                               std::make_pair("Man", "TWFu"),
+                               std::make_pair("pleasure.", "cGxlYXN1cmUu"),
+                               std::make_pair("leasure.", "bGVhc3VyZS4="),
+                               std::make_pair("easure.", "ZWFzdXJlLg=="),
+                               std::make_pair("asure.", "YXN1cmUu"),
+                               std::make_pair("sure.", "c3VyZS4="))
+);
 
 TEST(Conversion, Enum)
 {
@@ -86,37 +120,6 @@ TEST(Conversion, Bits)
     const unsigned restored = conv::cast<unsigned>(toStore);
 
     EXPECT_EQ(result, restored);
-}
-
-TEST(Conversion, Base64)
-{
-    std::string valid("Zm9vYmFy");
-
-    std::vector<char> data;
-    stlencoders::base64<char>::decode(valid.begin(), valid.end(), std::back_inserter(data));
-
-    {
-        const std::string base64 = conv::cast<conv::Base64>(data);
-
-        EXPECT_EQ(base64, valid);
-
-        // back to binary
-        std::vector<char> binary = conv::cast<std::vector<char>, conv::Base64>(base64);
-        EXPECT_EQ(data, binary);
-    }
-
-    {
-        const std::string src(data.begin(), data.end());
-        const std::string base64 = conv::cast<conv::Base64>(src);
-        EXPECT_EQ(base64, valid);
-
-        // back to binary
-        std::vector<char> base64Vector(base64.begin(), base64.end());
-
-        std::vector<char> binary = conv::cast<std::vector<char>, conv::Base64>(base64Vector);
-        EXPECT_EQ(data, binary);
-    }
-
 }
 
 TEST(Conversion, DefaultBinaryToString)
