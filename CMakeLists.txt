@@ -3,7 +3,7 @@ set(PROJECT_NAME lib_conversion)
 cmake_minimum_required(VERSION 3.0)
 set(CMAKE_CXX_STANDARD 14)
 
-file(GLOB_RECURSE SOURCES "include/*.hpp")
+file(GLOB_RECURSE SOURCES "include/*.hpp" "src/*.cpp")
 
 set(BOOST_COMPONENTS locale date_time)
 find_package(Boost COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
